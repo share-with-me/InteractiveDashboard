@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Interactive Data Dashboard</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="css/dc.css">
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="css/main.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+</head>
+<body>
+<div class="container">
+  <div class="row">
+    <div class="col-xs-12 dc-data-count dc-chart" id="data-count">
+      <h2 align="center">Dashboard2 - Interactive Visualisation
+        <small>
+         
+           <a id="all" href="#">Reset All</a>
+          </span>
+        </small>
+      </h2>
+    </div>
+  </div>
+  <div class="row" id="control-row">
+    <div class="col-xs-4 col-md-4 col-lg-offset-1 col-lg-3 pie-chart" >
+      <h4>Year <small><a id="year">reset</a></small></h4>
+      <div class="dc-chart" id="chart-ring-year"></div>
+    </div>
+    <div class="col-xs-4 col-md-4 col-lg-offset-1 col-lg-3 pie-chart">
+      <h4>Month <small><a id="month" href="#">reset</a></small></h4>
+      <div class="dc-chart" id="chart-ring-month"></div>
+    </div>
+    <div class="col-xs-4 col-md-4  col-lg-offset-1 col-lg-3 pie-chart">
+      <h4>Day <small><a id="day">reset</a></small></h4>
+      <div id="chart-ring-day" class="dc-chart"></div>
+    </div>
+  </div>
+  <br/><br/> <br/><br/></br>
+  <div class="row">
+    <div class="col-xs-12 col-md-3 col-lg-5 col-lg-offset-1" align="center">
+      <div class="dc-chart" id="chart-rating-count"></div>
+    </div>
+    <div class="col-xs-12 col-md-3 col-lg-5 col-lg-offset-1" align="center">
+      <div class="dc-chart" id="chart-community-rating-count"></div>
+    </div>
+    <div class="col-xs-12 col-md-3 col-lg-5 col-lg-offset-1" align="center">
+      <div class="dc-chart" id="chart-abv-count"></div>
+    </div>
+       <div class="col-xs-12 col-md-3 col-lg-5 col-lg-offset-1" align="center">
+      <div class="dc-chart" id="chart-ibu-count"></div>
+    </div>
+  </div>
+  <div style = "height: 50px;"></div>
+  <div class="row">
+    <div class="col-xs-12 col-lg-11 col-lg-offset-1">
+      <table class="table table-bordered table-striped" id="data-table">
+        <thead>
+          <tr class="header">
+            <th>Brewery</th>
+            <th>Beer</th>
+            <th>Style</th>
+            <th>My Rating</th>
+            <th>Community Rating</th>
+            <th>ABV %</th>
+            <th>IBU</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+  </div>
+</div>
+<script type="text/javascript" src="js/d3.js"></script>
+<script type="text/javascript" src="js/crossfilter.js"></script>
+<script type="text/javascript" src="js/dc.js"></script>
+
+<script type="text/javascript" src="js/underscore-min.js"></script>
+<script type="text/javascript">
+
+    d3.json("data.json", function(error, data){
+        var beerdata = data.response.beers.items;
+
+        var fulldateformat = d3.time.format('%a, %d %b %Y %X %Z');
+        var yearformat = d3.time.format('%Y');
+        var monthformat = d3.time.format('%b');
+        var dayofweekformat = d3.time.format('%a');
+
+        _.each(beerdata, function(d){
+          d.count = +d.count;
+          d.rating_score = Math.round(+d.rating_score * 4) / 4;
+          d.beer.rating_score = Math.round(+d.beer.rating_score * 4) / 4;
+          d.beer.beer_abv = Math.round(+d.beer.beer_abv * 2) / 2;
+
+          d.first_had_dt = fulldateformat.parse(d.first_had);
+          d.first_had_year = +yearformat(d.first_had_dt);
+          d.first_had_month = monthformat(d.first_had_dt);
+          d.first_had_day = dayofweekformat(d.first_had_dt);
+
+        });
+        var ndx = crossfilter(beerdata);
+
+        //creating dimensions which are nothing but x-values
+
+        var yeardim = ndx.dimension(dc.pluck('first_had_year')),
+            monthdim = ndx.dimension(dc.pluck('first_had_month')),
+            dayofweekdim = ndx.dimension(dc.pluck('first_had_day')),
+            ratingdim = ndx.dimension(dc.pluck('rating_score')),
+            commratingdim = ndx.dimension( function(d) { return d.beer.rating_score;}),
+            abvdim = ndx.dimension( function(d) { return d.beer.beer_abv;}),
+            ibudim = ndx.dimension( function(d) { return d.beer.beer_ibu;}),
+            alldim = ndx.dimension( function(d) { return d; });
+
+        //creating groups ie Y values
+        var all = ndx.groupAll();
+
+        var countperyear = yeardim.group().reduceCount(),
+            countpermonth = monthdim.group().reduceCount(),
+            countperday = dayofweekdim.group().reduceCount(),
+            countperrating = ratingdim.group().reduceCount(),
+            countpercommrating = commratingdim.group().reduceCount(),
+            countperabv = abvdim.group().reduceCount(),
+            countperibu = ibudim.group().reduceCount();
+
+        var yearchart = dc.pieChart('#chart-ring-year'),
+            monthchart = dc.pieChart('#chart-ring-month'),
+            daychart = dc.pieChart('#chart-ring-day'),
+            ratingcountchart = dc.barChart('#chart-rating-count'),
+            commratingcountchart = dc.barChart('#chart-community-rating-count'),
+            abvcountchart = dc.barChart('#chart-abv-count'),
+            ibucountchart = dc.barChart('#chart-ibu-count'),
+            datacount = dc.dataCount('#data-count'),
+            datatable = dc.dataTable('#data-table');
+
+
+        yearchart
+            .width(200)
+            .height(200)
+            .dimension(yeardim)
+            .group(countperyear)
+            .innerRadius(25);
+
+        monthchart
+            .width(200)
+            .height(200)
+            .dimension(monthdim)
+            .group(countpermonth)
+            .innerRadius(25)
+            .ordering( function(d){
+                var values = {
+                  'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4,
+                  'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
+                  'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+                }
+                return values[d.key];
+            });
+
+        daychart
+            .width(200)
+            .height(200)
+            .dimension(dayofweekdim)
+            .group(countperday)
+            .innerRadius(25)
+            .ordering(function (d) {
+                var order = {
+                'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3,
+                'Fri': 4, 'Sat': 5, 'Sun': 6
+              }
+                return order[d.key];
+              }
+        );
+
+        ratingcountchart
+          .width(400)
+          .height(300)
+          .dimension(ratingdim)
+          .group(countperrating)
+          .x(d3.scale.linear().domain([0,5.2]))
+          .elasticY(true)
+          .centerBar(true)
+          .barPadding(4)
+          .xAxisLabel('My Rating')
+          .yAxisLabel('Count')
+          .margins({top: 10, right: 20, bottom: 50, left: 50});
+
+       ratingcountchart.xAxis().tickValues([0,1,2,3,4,5]);
+
+       commratingcountchart
+          .width(400)
+          .height(300)
+          .dimension(commratingdim)
+          .group(countpercommrating)
+          .x(d3.scale.linear().domain([0,5.2]))
+          .elasticY(true)
+          .centerBar(true)
+          .barPadding(4)
+          .xAxisLabel('Community Rating')
+          .yAxisLabel('Count')
+          .margins({top: 10, right: 20, bottom: 50, left: 50});
+
+      commratingcountchart.xAxis().tickValues([0,1,2,3,4,5]);
+
+
+     abvcountchart
+      .width(400)
+      .height(300)
+      .dimension(abvdim)
+      .group(countperabv)
+      .x(d3.scale.linear().domain([-0.2, d3.max(beerdata, function (d) { return d.beer.beer_abv; }) + 0.2]))
+      .elasticY(true)
+      .centerBar(true)
+      .barPadding(2)
+      .xAxisLabel('Alcohol By Volume (%)')
+      .yAxisLabel('Count')
+      .margins({top: 10, right: 20, bottom: 50, left: 50});
+
+
+      ibucountchart
+      .width(400)
+      .height(300)
+      .dimension(ibudim)
+      .group(countperibu)
+      .x(d3.scale.linear().domain([-2, d3.max(beerdata, function (d) { return d.beer.beer_ibu; }) + 2]))
+      .elasticY(true)
+      .centerBar(true)
+      .barPadding(5)
+      .xAxisLabel('International Bitterness Units')
+      .yAxisLabel('Count')
+      .xUnits(function (d) { return 5;})
+      .margins({top: 10, right: 20, bottom: 50, left: 50});
+
+      datacount
+        .dimension(ndx)
+        .group(all); 
+
+
+      datatable
+        .dimension(alldim)
+        .group(function (d) { return 'dc.js insists on putting a row here so I remove it using JS'; })
+        .size(100)
+        .columns([
+            function(d) { return d.brewery.brewery_name;},
+            function(d) { return d.beer.beer_name; },
+            function(d) { return d.beer.beer_style; },
+            function(d) { return d.rating_score; },
+            function(d) { return d.beer.rating_score; },
+            function(d) { return d.beer.beer_abv; },
+            function(d) { return d.beer.beer_ibu; }
+
+        ])
+        .sortBy(dc.pluck('rating_score'))
+        .order(d3.descending)
+        .on('renderlet', function(table){
+            table.select('tr.dc-table-group').remove();
+        });
+
+
+
+
+      d3.selectAll('a#all').on('click', function () {
+          dc.filterAll();
+          dc.renderAll();
+      });
+      d3.selectAll('a#year').on('click', function () {
+          yearchart.filterAll();
+          dc.redrawAll();
+      });
+      d3.selectAll('a#month').on('click', function () {
+          monthchart.filterAll();
+          dc.redrawAll();
+      });
+      d3.selectAll('a#day').on('click', function () {
+          daychart.filterAll();
+          dc.redrawAll();
+      });
+  
+      dc.renderAll();
+});
+
+d3.select('.table').style("background-color", function(d, i){
+  if(i%2 == 0){
+    return "#eee";
+  }
+  else{
+    return "#fff";
+  }
+});
+</script>
+</body></html>
